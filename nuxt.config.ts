@@ -47,5 +47,7 @@ export default defineNuxtConfig({
     public: {
       wsHost: process.env.WS_HOST || 'localhost:8080'
     }
-  }
+  },
+  modules: [
+    '@pinia/nuxt']
 })
