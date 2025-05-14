@@ -2,7 +2,7 @@
   <div class="login-container">
     <form @submit.prevent="login" class="login-form">
       <h2 class="login-title">Bienvenido a SITS</h2>
-      
+      <p class= "login-subtitle" > Por favor ingresa usuario y contraseña</p>
       <div class="form-group">
         <input
           v-model="username"
@@ -87,6 +87,14 @@ const login = async () => {
   color: #ffffff;
 }
 
+.login-subtitle {
+  text-align: center;
+  font-size: 16px;
+  margin-bottom: 1.5rem;
+  font-weight: 400;
+  color: #ffffff;
+}
+
 .form-group {
   margin-bottom: 1rem;
 }
@@ -108,7 +116,7 @@ const login = async () => {
   width: 100%;
   padding: 0.8rem;
   border: none;
-  background-color: #007BFF;
+  background-color: #7de03b;
   color: white;
   font-size: 16px;
   border-radius: 4px;
