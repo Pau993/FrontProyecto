@@ -26,7 +26,7 @@ const login = async () => {
       body: { username: username.value, password: password.value }
     })
     console.log('Token recibido:', res.token)
-    localStorage.setItem('token', res.token)
+    sessionStorage.setItem('token', res.token)
     console.log('Antes de router.push')
     await router.push('/page')
     console.log('Después de router.push')  // Si no aparece, router.push no se completó
