@@ -51,7 +51,7 @@ const login = async () => {
       body: { username: username.value, password: password.value }
     })
     sessionStorage.setItem('token', res.token)
-    router.push('/page')  // Ruta protegida
+    router.push('/generation')  // Ruta protegida
   } catch (e) {
     error.value = 'Usuario o contraseña incorrectos'
   } finally {
