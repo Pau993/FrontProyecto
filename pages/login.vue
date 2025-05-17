@@ -3,27 +3,15 @@
     <form @submit.prevent="login" class="login-form">
       <h2 class="login-title">Bienvenido a SITS</h2>
       <p class="login-subtitle">Por favor ingresa usuario y contraseña</p>
-      
+
       <div class="form-group">
-        <input 
-          v-model="username" 
-          type="text" 
-          placeholder="Usuario" 
-          class="input-field"
-          :class="{ 'input-error': error }" 
-          autocomplete="username"
-        />
+        <input v-model="username" type="text" placeholder="Usuario" class="input-field"
+          :class="{ 'input-error': error }" autocomplete="username" />
       </div>
 
       <div class="form-group">
-        <input 
-          v-model="password" 
-          type="password" 
-          placeholder="Contraseña" 
-          class="input-field"
-          :class="{ 'input-error': error }" 
-          autocomplete="current-password"
-        />
+        <input v-model="password" type="password" placeholder="Contraseña" class="input-field"
+          :class="{ 'input-error': error }" autocomplete="current-password" />
       </div>
 
       <button type="submit" :disabled="loading || retryAfter > 0" class="submit-button">
@@ -33,16 +21,21 @@
       <!-- Mensajes de error -->
       <p v-if="error" class="error-message">{{ error }}</p>
 
-      <!-- Mostrar temporizador si está bloqueado -->
-      <p v-if="retryAfter > 0" class="info-message">
-        Intenta de nuevo en {{ retryAfter }} segundos.
-      </p>
 
-      <!-- Mostrar intentos restantes si no está bloqueado -->
-      <p v-else-if="attemptsLeft >= 0" class="info-message">
+      <p v-if="retryAfter === 0 && attemptsLeft >= 0" class="info-message">
         Intentos restantes: {{ attemptsLeft }}
       </p>
+
+
     </form>
+
+    <div v-if="retryAfter > 0" class="modal-overlay">
+      <div class="modal-content">
+        <p>Demasiados intentos fallidos. Intenta de nuevo en {{ retryAfter }} segundos.</p>
+        <button @click="closePopup">Cerrar</button>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -51,6 +44,7 @@ import jwtDecode from 'jwt-decode'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+const showPopup = ref(false)
 const username = ref('')
 const password = ref('')
 const error = ref('')
@@ -62,14 +56,22 @@ const attemptsLeft = ref(3) // intentos restantes (iniciales)
 
 const startTimer = () => {
   if (retryAfter.value > 0) {
+    showPopup.value = true
     const interval = setInterval(() => {
       retryAfter.value--
       if (retryAfter.value <= 0) {
         clearInterval(interval)
+        showPopup.value = false
         attemptsLeft.value = 3 // restablecer intentos
+        error.value = '' // limpiar error
       }
     }, 1000)
   }
+}
+
+const closePopup = () => {
+  showPopup.value = false
+  error.value = ''
 }
 
 const login = async () => {
@@ -99,6 +101,7 @@ const login = async () => {
       startTimer()
     } else if (e.status === 401) {
       error.value = 'Usuario o contraseña incorrectos.'
+
       if (attemptsLeft.value > 0) attemptsLeft.value--
     } else {
       error.value = 'Error al iniciar sesión. Intenta de nuevo.'
@@ -188,5 +191,26 @@ const login = async () => {
   color: white;
   text-align: center;
   margin-top: 0.8rem;
+}
+
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
 }
 </style>
