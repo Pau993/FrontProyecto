@@ -33,6 +33,7 @@
 </template>
 
 <script setup>
+import jwtDecode from 'jwt-decode'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -51,7 +52,15 @@ const login = async () => {
       body: { username: username.value, password: password.value }
     })
     sessionStorage.setItem('token', res.token)
-    router.push('/generation')  // Ruta protegida
+
+    const decoden = jwtDecode(res.token)
+    console.log('Token identificado',decoden)
+
+    if (decoden.role === 'admin'){
+      router.push('/view')  // Ruta protegida para admin
+    }else {
+      router.push('/generation') 
+    }
   } catch (e) {
     error.value = 'Usuario o contraseña incorrectos'
   } finally {
