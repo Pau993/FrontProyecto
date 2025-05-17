@@ -2,32 +2,46 @@
   <div class="login-container">
     <form @submit.prevent="login" class="login-form">
       <h2 class="login-title">Bienvenido a SITS</h2>
-      <p class= "login-subtitle" > Por favor ingresa usuario y contraseña</p>
-      <div class="form-group">
-        <input
-          v-model="username"
-          type="text"
-          placeholder="Usuario"
-          class="input-field"
-          :class="{'input-error': error}"
-        />
-      </div>
+      <p class="login-subtitle">Por favor ingresa usuario y contraseña</p>
       
       <div class="form-group">
-        <input
-          v-model="password"
-          type="password"
-          placeholder="Contraseña"
+        <input 
+          v-model="username" 
+          type="text" 
+          placeholder="Usuario" 
           class="input-field"
-          :class="{'input-error': error}"
+          :class="{ 'input-error': error }" 
+          autocomplete="username"
         />
       </div>
-      
-      <button type="submit" :disabled="loading" class="submit-button">
+
+      <div class="form-group">
+        <input 
+          v-model="password" 
+          type="password" 
+          placeholder="Contraseña" 
+          class="input-field"
+          :class="{ 'input-error': error }" 
+          autocomplete="current-password"
+        />
+      </div>
+
+      <button type="submit" :disabled="loading || retryAfter > 0" class="submit-button">
         {{ loading ? 'Ingresando...' : 'Entrar' }}
       </button>
-      
+
+      <!-- Mensajes de error -->
       <p v-if="error" class="error-message">{{ error }}</p>
+
+      <!-- Mostrar temporizador si está bloqueado -->
+      <p v-if="retryAfter > 0" class="info-message">
+        Intenta de nuevo en {{ retryAfter }} segundos.
+      </p>
+
+      <!-- Mostrar intentos restantes si no está bloqueado -->
+      <p v-else-if="attemptsLeft >= 0" class="info-message">
+        Intentos restantes: {{ attemptsLeft }}
+      </p>
     </form>
   </div>
 </template>
@@ -43,6 +57,21 @@ const error = ref('')
 const loading = ref(false)
 const router = useRouter()
 
+const retryAfter = ref(0)  // segundos restantes para desbloquear
+const attemptsLeft = ref(3) // intentos restantes (iniciales)
+
+const startTimer = () => {
+  if (retryAfter.value > 0) {
+    const interval = setInterval(() => {
+      retryAfter.value--
+      if (retryAfter.value <= 0) {
+        clearInterval(interval)
+        attemptsLeft.value = 3 // restablecer intentos
+      }
+    }, 1000)
+  }
+}
+
 const login = async () => {
   loading.value = true
   error.value = ''
@@ -54,15 +83,26 @@ const login = async () => {
     sessionStorage.setItem('token', res.token)
 
     const decoden = jwtDecode(res.token)
-    console.log('Token identificado',decoden)
+    console.log('Token identificado', decoden)
 
-    if (decoden.role === 'admin'){
+    if (decoden.role === 'admin') {
       router.push('/view')  // Ruta protegida para admin
-    }else {
-      router.push('/generation') 
+    } else {
+      router.push('/generation')
     }
   } catch (e) {
-    error.value = 'Usuario o contraseña incorrectos'
+    if (e.status === 429) {
+      const data = e.response.json()
+      error.value = `Demasiados intentos fallidos. Intenta de nuevo cuando termine el tiempo de espera.`
+      retryAfter.value = data.retryAfter || 60
+      attemptsLeft.value = data.attemptsLeft ?? 0
+      startTimer()
+    } else if (e.status === 401) {
+      error.value = 'Usuario o contraseña incorrectos.'
+      if (attemptsLeft.value > 0) attemptsLeft.value--
+    } else {
+      error.value = 'Error al iniciar sesión. Intenta de nuevo.'
+    }
   } finally {
     loading.value = false
   }
@@ -75,10 +115,11 @@ const login = async () => {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-image: url('/assets/fondo2.png');  /* Aquí se aplica la imagen de fondo */
+  background-image: url('/assets/fondo2.png');
   background-size: cover;
   background-position: center;
 }
+
 .login-form {
   background: rgb(219, 39, 39);
   padding: 2rem;
@@ -118,7 +159,7 @@ const login = async () => {
 }
 
 .input-error {
-  border-color: red;
+  border-color: rgb(255, 255, 255);
 }
 
 .submit-button {
@@ -137,9 +178,15 @@ const login = async () => {
 }
 
 .error-message {
-  color: red;
+  color: rgb(255, 255, 255);
   font-size: 14px;
   text-align: center;
   margin-top: 1rem;
+}
+
+.info-message {
+  color: white;
+  text-align: center;
+  margin-top: 0.8rem;
 }
 </style>
