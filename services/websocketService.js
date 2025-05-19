@@ -13,7 +13,6 @@ export class WebSocketService {
 
     this.ws.onopen = () => {
       console.log('WebSocket Connected')
-      // Enviar información de usuario al conectar
       this.ws.send(JSON.stringify({
         username: this.username,
         role: this.role
