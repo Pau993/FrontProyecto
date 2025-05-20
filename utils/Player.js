@@ -4,12 +4,10 @@ export class Player extends Entity {
   constructor(screenWidth, screenHeight, tileSize, id = null) {
     super()
     this.imagesLoaded = false
-
+    this.isInCollision = false;
     // Add player ID for multiplayer
     this.id = id
     this.name = `Player-${id || 'local'}`
-
-    // Initial position
     this.x = 100
     this.y = 100
     this.speed = 4
@@ -52,6 +50,7 @@ export class Player extends Entity {
       { key: 'rightLoaded', path: '/player/SitpDer.png' }
     ];
 
+    // Load images in parallel
     try {
       await Promise.all(
         imagePromises.map(async ({ key, path }) => {
@@ -278,7 +277,7 @@ export class Player extends Entity {
           const targetY = Number(playerData.y);
 
           // Usar interpolación para movimiento más suave
-          const lerpFactor = 0.3; // Ajustar este valor para más/menos suavidad
+          const lerpFactor = 0.3;
           this.x = this.x + (targetX - this.x) * lerpFactor;
           this.y = this.y + (targetY - this.y) * lerpFactor;
 
@@ -310,7 +309,6 @@ export class Player extends Entity {
   }
 
   // Add this method after getNetworkState()
-
   checkPlayerCollision(otherPlayers, webSocket) {
     let collisionOccurred = false;
 
@@ -333,61 +331,34 @@ export class Player extends Entity {
           myBottom > otherTop &&
           myTop < otherBottom) {
 
-          if (!collisionOccurred) {
-            const oldMyPerson = this.hasPerson;
-            const oldOtherPerson = player.hasPerson;
+          if (!this.isInCollision) {
+            // Aplicar penalización
+            this.hasPerson = Math.max(1, this.hasPerson - 3);
 
-            // Restar pasajeros
-            if (this.hasPerson >= 2) {
-              this.hasPerson -= 2;
-            } else {
-              this.hasPerson = 0;
-            }
+            // Marcar colisión
+            this.isInCollision = true;
 
-            if (player.hasPerson >= 2) {
-              player.hasPerson -= 2;
-            } else {
-              player.hasPerson = 0;
-            }
+            // Reset después de 1 segundo
+            setTimeout(() => {
+              this.isInCollision = false;
+            }, 1000);
 
-            // Enviar actualización de AMBOS jugadores al servidor
+            // Actualizar servidor
             if (webSocket) {
-              // Actualizar jugador local
-              webSocket.sendPlayerPosition({
-                id: this.id,
-                x: this.x,
-                y: this.y,
-                direction: this.direction,
-                hasPerson: this.hasPerson
-              });
-
-              // Actualizar otro jugador
-              webSocket.sendPlayerPosition({
-                id: player.id,
-                x: player.x,
-                y: player.y,
-                direction: player.direction,
-                hasPerson: player.hasPerson
-              });
+              webSocket.sendHasPersonUpdate(this.hasPerson);
             }
-
-            // Forzar actualización de sprites
-            this.getCurrentImage();
-            player.getCurrentImage();
-
-            collisionOccurred = true;
           }
 
-          // Pequeño empuje para separar los jugadores
-          const pushDistance = 10;
+          // Aplicar rebote
+          const pushDistance = 30;
           this.x += (myLeft < otherLeft) ? -pushDistance : pushDistance;
           this.y += (myTop < otherTop) ? -pushDistance : pushDistance;
+
+          return true;
         }
       }
     }
-    return collisionOccurred;
   }
-
   pickUpObject(index, objects, webSocket = null) {
     if (index !== 999 && objects[index]) {
       const oldHasPerson = this.hasPerson;
