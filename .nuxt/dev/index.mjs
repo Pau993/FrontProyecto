@@ -643,7 +643,7 @@ const _inlineRuntimeConfig = {
     }
   },
   "public": {
-    "wsHost": "balanceador-116631868.us-east-1.elb.amazonaws.com:80"
+    "wsHost": "localhost:8080"
   }
 };
 const envOptions = {
