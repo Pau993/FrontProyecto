@@ -7,12 +7,12 @@ export default {
     "module": true,
     "resourceType": "script"
   },
-  "C:/Users/natal/ProyectoFront1/FrontProyecto/node_modules/nuxt/dist/app/entry.js": {
+  "C:/Users/Andres Rodriguez/Desktop/FrontProyecto/node_modules/nuxt/dist/app/entry.js": {
     "resourceType": "script",
     "module": true,
     "prefetch": true,
     "preload": true,
     "isEntry": true,
-    "file": "C:/Users/natal/ProyectoFront1/FrontProyecto/node_modules/nuxt/dist/app/entry.js"
+    "file": "C:/Users/Andres Rodriguez/Desktop/FrontProyecto/node_modules/nuxt/dist/app/entry.js"
   }
 }

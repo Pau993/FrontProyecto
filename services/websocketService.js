@@ -12,12 +12,23 @@ export class WebSocketService {
     this.ws = new WebSocket(this.url)
 
     this.ws.onopen = () => {
-      console.log('WebSocket Connected')
+    console.log('WebSocket Connected');
+    // Verificar estado antes de enviar
+    if (this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         username: this.username,
         role: this.role
-      }))
+      }));
+    } else {
+      // Si no está abierto aún, escuchar y enviar cuando esté listo
+      this.ws.addEventListener('open', () => {
+        this.ws.send(JSON.stringify({
+          username: this.username,
+          role: this.role
+        }));
+      });
     }
+  };
 
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data)
