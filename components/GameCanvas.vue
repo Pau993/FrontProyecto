@@ -14,6 +14,8 @@
   </div>
 </template>
 
+// This component is responsible for rendering the game canvas and handling the game loop.
+
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { TileManager } from '~/utils/TileManager.js'

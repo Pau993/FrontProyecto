@@ -203,68 +203,68 @@ export class Player extends Entity {
 
     // Comprobar teclas y establecer dirección
     if (keys.up) {
-        this.direction = 'up';
-        keyPressed = true;
+      this.direction = 'up';
+      keyPressed = true;
     } else if (keys.down) {
-        this.direction = 'down';
-        keyPressed = true;
+      this.direction = 'down';
+      keyPressed = true;
     } else if (keys.left) {
-        this.direction = 'left';
-        keyPressed = true;
+      this.direction = 'left';
+      keyPressed = true;
     } else if (keys.right) {
-        this.direction = 'right';
-        keyPressed = true;
+      this.direction = 'right';
+      keyPressed = true;
     }
 
     // Si se presionó una tecla, actualizar posición
     if (keyPressed) {
-        // Comprobar colisiones con tiles
-        collisionChecker.checkTile(this);
-        
-        // Comprobar colisiones con otros jugadores
-        const hasPlayerCollision = collisionChecker.checkPlayerCollision(this, otherPlayers);
+      // Comprobar colisiones con tiles
+      collisionChecker.checkTile(this);
 
-        // Comprobar colisiones con objetos
-        const objIndex = collisionChecker.checkObject(this, objects, true);
-        if (objIndex !== 999) {
-            this.pickUpObject(objIndex, objects, webSocket);
+      // Comprobar colisiones con otros jugadores
+      const hasPlayerCollision = this.checkPlayerCollision(otherPlayers, webSocket);
+
+      // Comprobar colisiones con objetos
+      const objIndex = collisionChecker.checkObject(this, objects, true);
+      if (objIndex !== 999) {
+        this.pickUpObject(objIndex, objects, webSocket);
+      }
+
+      // Mover si no hay colisión
+      if (!this.collisionOn && !hasPlayerCollision) {
+        switch (this.direction) {
+          case 'up':
+            this.y -= this.speed;
+            break;
+          case 'down':
+            this.y += this.speed;
+            break;
+          case 'left':
+            this.x -= this.speed;
+            break;
+          case 'right':
+            this.x += this.speed;
+            break;
         }
+      }
 
-        // Mover si no hay colisión
-        if (!this.collisionOn && !hasPlayerCollision) {
-            switch (this.direction) {
-                case 'up':
-                    this.y -= this.speed;
-                    break;
-                case 'down':
-                    this.y += this.speed;
-                    break;
-                case 'left':
-                    this.x -= this.speed;
-                    break;
-                case 'right':
-                    this.x += this.speed;
-                    break;
-            }
-        }
-
-        // Mantener dentro de los límites de la pantalla
-        this.x = Math.max(0, Math.min(this.x, this.screenWidth - this.tileSize));
-        this.y = Math.max(0, Math.min(this.y, this.screenHeight - this.tileSize));
+      // Mantener dentro de los límites de la pantalla
+      this.x = Math.max(0, Math.min(this.x, this.screenWidth - this.tileSize));
+      this.y = Math.max(0, Math.min(this.y, this.screenHeight - this.tileSize));
     }
 
     // Check if state needs network update
     this.needsUpdate = oldX !== this.x ||
-        oldY !== this.y ||
-        oldDirection !== this.direction ||
-        oldHasPerson !== this.hasPerson;
+      oldY !== this.y ||
+      oldDirection !== this.direction ||
+      oldHasPerson !== this.hasPerson;
 
     if (this.needsUpdate) {
-        this.lastUpdate = Date.now();
+      this.lastUpdate = Date.now();
     }
 
     return this.needsUpdate;
-}
+  }
 
   updateFromNetwork(data) {
     if (this.isLocal) return;
@@ -311,60 +311,148 @@ export class Player extends Entity {
 
   // Add this method after getNetworkState()
 
-checkPlayerCollision(otherPlayers) {
-  for (const player of otherPlayers) {
-    if (player && player.id !== this.id) {
-      // Calculate boundaries for both players
-      const myLeft = this.x + this.solidArea.x;
-      const myRight = this.x + this.solidArea.x + this.solidArea.width;
-      const myTop = this.y + this.solidArea.y;
-      const myBottom = this.y + this.solidArea.y + this.solidArea.height;
+  checkPlayerCollision(otherPlayers, webSocket) {
+    let collisionOccurred = false;
 
-      const otherLeft = player.x + player.solidArea.x;
-      const otherRight = player.x + player.solidArea.x + player.solidArea.width;
-      const otherTop = player.y + player.solidArea.y;
-      const otherBottom = player.y + player.solidArea.y + player.solidArea.height;
+    for (const player of otherPlayers) {
+      if (player && player.id !== this.id) {
+        // Calculate boundaries for both players
+        const myLeft = this.x + this.solidArea.x;
+        const myRight = this.x + this.solidArea.x + this.solidArea.width;
+        const myTop = this.y + this.solidArea.y;
+        const myBottom = this.y + this.solidArea.y + this.solidArea.height;
 
-      // Check for overlap
-      if (myRight > otherLeft && 
-          myLeft < otherRight && 
-          myBottom > otherTop && 
+        const otherLeft = player.x + player.solidArea.x;
+        const otherRight = player.x + player.solidArea.x + player.solidArea.width;
+        const otherTop = player.y + player.solidArea.y;
+        const otherBottom = player.y + player.solidArea.y + player.solidArea.height;
+
+        // Check for overlap
+        if (myRight > otherLeft &&
+          myLeft < otherRight &&
+          myBottom > otherTop &&
           myTop < otherBottom) {
-        return true; // Collision detected
+
+          if (!collisionOccurred) {
+            const oldMyPerson = this.hasPerson;
+            const oldOtherPerson = player.hasPerson;
+
+            // Restar pasajeros
+            if (this.hasPerson >= 2) {
+              this.hasPerson -= 2;
+            } else {
+              this.hasPerson = 0;
+            }
+
+            if (player.hasPerson >= 2) {
+              player.hasPerson -= 2;
+            } else {
+              player.hasPerson = 0;
+            }
+
+            // Enviar actualización de AMBOS jugadores al servidor
+            if (webSocket) {
+              // Actualizar jugador local
+              webSocket.sendPlayerPosition({
+                id: this.id,
+                x: this.x,
+                y: this.y,
+                direction: this.direction,
+                hasPerson: this.hasPerson
+              });
+
+              // Actualizar otro jugador
+              webSocket.sendPlayerPosition({
+                id: player.id,
+                x: player.x,
+                y: player.y,
+                direction: player.direction,
+                hasPerson: player.hasPerson
+              });
+            }
+
+            // Forzar actualización de sprites
+            this.getCurrentImage();
+            player.getCurrentImage();
+
+            collisionOccurred = true;
+          }
+
+          // Pequeño empuje para separar los jugadores
+          const pushDistance = 10;
+          this.x += (myLeft < otherLeft) ? -pushDistance : pushDistance;
+          this.y += (myTop < otherTop) ? -pushDistance : pushDistance;
+        }
       }
     }
+    return collisionOccurred;
   }
-  return false; // No collision
-}
 
   pickUpObject(index, objects, webSocket = null) {
     if (index !== 999 && objects[index]) {
-        const oldHasPerson = this.hasPerson;
-        const object = objects[index];
+      const oldHasPerson = this.hasPerson;
+      const object = objects[index];
 
-        if (object.name === 'person') {
-            this.hasPerson++;
-            // Send person state update before nullifying the object
-            if (webSocket) {
-                webSocket.sendHasPersonUpdate(this.hasPerson);
-                webSocket.sendPersonState(object.id, false); // Mark person as inactive
-            }
-            objects[index] = null;
-        } else if (object.name === 'obstacles') { debugger
-            this.hasPerson = Math.max(1, this.hasPerson - 3);
-            this.hasPerson = Math.max(1, this.hasPerson - 1);
-            if (webSocket) {
-                webSocket.sendHasPersonUpdate(this.hasPerson);
-            }
+      if (object.name === 'person' && object.active !== false) {
+        // Incrementar contador de pasajeros
+        this.hasPerson++;
+
+        // Guardar posición original del pasajero
+        const originalPosition = {
+          x: object.x,
+          y: object.y,
+          id: object.id || `p${index}` // Ensure person has an ID
+        };
+
+        // Actualizar ID si no existe
+        if (!object.id) {
+          object.id = originalPosition.id;
         }
 
-        if (oldHasPerson !== this.hasPerson) {
-            console.log('HasPerson changed:', { 
-                old: oldHasPerson, 
-                new: this.hasPerson,
-                objectId: object.id 
-            });
+        // Desactivar el pasajero temporalmente
+        object.active = false;
+
+        // Notificar cambios al servidor
+        if (webSocket) {
+          webSocket.sendHasPersonUpdate(this.hasPerson);
+          webSocket.sendPersonState(originalPosition.id, false);
+          console.log(`Person ${originalPosition.id} deactivated`);
         }
+        console.log(`Pasajero recogido: ${originalPosition.id}`);
+        console.log(`Pasajero recogido por: ${this.name}`);
+
+        // Programar reaparición del pasajero
+        setTimeout(() => {
+          if (objects[index]) {
+            objects[index].active = true;
+            if (webSocket) {
+              webSocket.sendPersonState(originalPosition.id, true);
+              console.log(`Person ${originalPosition.id} reactivated`);
+            }
+          }
+        }, 5000);
+
+        // Log para debugging
+        console.log('Person pickup:', {
+          personId: originalPosition.id,
+          position: `${originalPosition.x},${originalPosition.y}`,
+          playerHasPerson: this.hasPerson
+        });
+
+      } else if (object.name === 'obstacles') {
+        this.hasPerson = Math.max(1, this.hasPerson - 3);
+        if (webSocket) {
+          webSocket.sendHasPersonUpdate(this.hasPerson);
+        }
+      }
+
+      if (oldHasPerson !== this.hasPerson) {
+        console.log('HasPerson changed:', {
+          old: oldHasPerson,
+          new: this.hasPerson,
+          objectId: object.id
+        });
+      }
     }
-}
+  }
 }
