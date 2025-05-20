@@ -1,62 +1,65 @@
 <template>
-    <div class="game-container">
-      <canvas 
-        ref="gameCanvas" 
-        :width="SCREEN_WIDTH" 
-        :height="SCREEN_HEIGHT"
-      ></canvas>
-      <div class="game-hud">
-        <span class="score">Personas: {{ player.hasPerson }}</span>
-        <span class="players-online">Jugadores Online: {{ otherPlayers.size + 1 }}</span>
+  <div class="game-container">
+    <canvas ref="gameCanvas" :width="SCREEN_WIDTH" :height="SCREEN_HEIGHT"></canvas>
+    <div class="game-hud">
+      <span class="score">Personas: {{ player.hasPerson }}</span>
+      <span class="players-online">Jugadores Online: {{ otherPlayers.size + 1 }}</span>
+    </div>
+    <div v-if="collisionState.debug" class="collision-debug">
+      <div v-if="collisionState.lastCollision" class="collision-message">
+        ¡Colisión detectada!
+        Jugadores: {{ collisionState.lastCollision.player1 }} y {{ collisionState.lastCollision.player2 }}
       </div>
     </div>
-  </template>
-  
-  <script setup>
-  import { ref, onMounted, onUnmounted } from 'vue'
-  import { TileManager } from '~/utils/TileManager.js'
-  import { Player } from '~/utils/Player.js'
-  import { AssetSetter } from '~/utils/AssetSetter'
-  import { CollisionChecker } from '~/utils/CollisionChecker'
-  import { KeyHandler } from '~/utils/KeyHandler'
-  import { WebSocketService } from '~/utils/WebSocketService'
+  </div>
+</template>
 
-  // Game constants
-  const ORIGINAL_TILE_SIZE = 26
-  const SCALE = 3
-  const TILE_SIZE = ORIGINAL_TILE_SIZE * SCALE
-  const MAX_SCREEN_COL = 16
-  const MAX_SCREEN_ROW = 12
-  const SCREEN_WIDTH = TILE_SIZE * MAX_SCREEN_COL
-  const SCREEN_HEIGHT = TILE_SIZE * MAX_SCREEN_ROW
-  const FPS = 60
-  
-  // Refs
-  const keyHandler = ref(new KeyHandler())
-  const gameCanvas = ref(null)
-  const gameLoop = ref(null)
-  const tileManager = ref(null)
-  const player = ref(new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE))
-  const objects = ref(new Array(15).fill(null))
-  const collisionChecker = ref(null)
-  const webSocket = ref(new WebSocketService())
-  const otherPlayers = ref(new Map())
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import { TileManager } from '~/utils/TileManager.js'
+import { Player } from '~/utils/Player.js'
+import { AssetSetter } from '~/utils/AssetSetter'
+import { CollisionChecker } from '~/utils/CollisionChecker'
+import { KeyHandler } from '~/utils/KeyHandler'
+import { WebSocketService } from '~/utils/WebSocketService'
 
-  // Game initialization
-  const initGame = async () => {
-    tileManager.value = new TileManager(MAX_SCREEN_COL, MAX_SCREEN_ROW, TILE_SIZE)
-    collisionChecker.value = new CollisionChecker(TILE_SIZE, tileManager.value)
-    const assetSetter = new AssetSetter(TILE_SIZE)
+// Game constants
+const ORIGINAL_TILE_SIZE = 26
+const SCALE = 3
+const TILE_SIZE = ORIGINAL_TILE_SIZE * SCALE
+const MAX_SCREEN_COL = 16
+const MAX_SCREEN_ROW = 12
+const SCREEN_WIDTH = TILE_SIZE * MAX_SCREEN_COL
+const SCREEN_HEIGHT = TILE_SIZE * MAX_SCREEN_ROW
+const FPS = 60
 
-    webSocket.value.onInitialData = async (serverData) => {
+// Refs
+const keyHandler = ref(new KeyHandler())
+const gameCanvas = ref(null)
+const gameLoop = ref(null)
+const tileManager = ref(null)
+const player = ref(new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE))
+const objects = ref(new Array(15).fill(null))
+const collisionChecker = ref(null)
+const webSocket = ref(new WebSocketService())
+const otherPlayers = ref(new Map())
+const collisionState = ref({ lastCollision: null, debug: false })
+
+// Game initialization
+const initGame = async () => {
+  tileManager.value = new TileManager(MAX_SCREEN_COL, MAX_SCREEN_ROW, TILE_SIZE)
+  collisionChecker.value = new CollisionChecker(TILE_SIZE, tileManager.value)
+  const assetSetter = new AssetSetter(TILE_SIZE)
+
+  webSocket.value.onInitialData = async (serverData) => {
     objects.value = await assetSetter.setObjects(serverData)
-    }
+  }
 
-    webSocket.value.setInitialDataCallback(async (serverData) => {
+  webSocket.value.setInitialDataCallback(async (serverData) => {
     console.log('Initializing game with server data');
     objects.value = await assetSetter.setObjects(serverData);
-    });
-  
+  });
+
   await Promise.all([
     tileManager.value.loadTiles(),
     player.value.loadImages(),
@@ -64,7 +67,7 @@
       objects.value = loadedObjects
     })
   ])
-  
+
   // Example map data - replace with your actual map
   const mapData = `
     15 16 1 6 3 1 6 2 1 6 1 8 6 2 18 15
@@ -88,52 +91,52 @@
     const localId = webSocket.value.getLocalPlayerId();
 
     if (playerData.type === 'personState') {
-        const personId = playerData.personId;
-        const isActive = playerData.active;
-        
-        // Find the person object and update its state
-        const person = objects.value.find(obj => obj && obj.id === personId);
-        if (person) {
-            person.active = isActive;
-            console.log(`🎭 Person ${personId} state updated to ${isActive} by player ${playerData.playerId}`);
-        }
-        return;
+      const personId = playerData.personId;
+      const isActive = playerData.active;
+
+      // Find the person object and update its state
+      const person = objects.value.find(obj => obj && obj.id === personId);
+      if (person) {
+        person.active = isActive;
+        console.log(`🎭 Person ${personId} state updated to ${isActive} by player ${playerData.playerId}`);
+      }
+      return;
     }
     // If player doesn't exist in otherPlayers, create it
     if (!otherPlayers.value.has(playerData.id) && playerData.id !== localId) {
-        const newPlayer = new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, playerData.id);
-        await newPlayer.loadImages();
-        otherPlayers.value.set(playerData.id, newPlayer);
+      const newPlayer = new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, playerData.id);
+      await newPlayer.loadImages();
+      otherPlayers.value.set(playerData.id, newPlayer);
     }
-    
+
     // Update player position if it's not the local player
     if (playerData.id !== localId) {
-        const otherPlayer = otherPlayers.value.get(playerData.id);
-        if (otherPlayer) {
- // Check if hasPerson is being updated
-    const hasPersonChanged = 'hasPerson' in playerData && otherPlayer.hasPerson !== playerData.hasPerson;
-            // Update player properties
-            otherPlayer.x = playerData.x ?? otherPlayer.x;
-            otherPlayer.y = playerData.y ?? otherPlayer.y;
-            otherPlayer.direction = playerData.direction ?? otherPlayer.direction;
-            
-            if (hasPersonChanged) {
-                otherPlayer.hasPerson = playerData.hasPerson;
-                otherPlayer.getCurrentImage();
-                console.log('🎮 Player Update:', {
-                    id: playerData.id,
-                    hasPerson: playerData.hasPerson,
-                    timestamp: new Date().toISOString()
-                });
-            }
+      const otherPlayer = otherPlayers.value.get(playerData.id);
+      if (otherPlayer) {
+        // Check if hasPerson is being updated
+        const hasPersonChanged = 'hasPerson' in playerData && otherPlayer.hasPerson !== playerData.hasPerson;
+        // Update player properties
+        otherPlayer.x = playerData.x ?? otherPlayer.x;
+        otherPlayer.y = playerData.y ?? otherPlayer.y;
+        otherPlayer.direction = playerData.direction ?? otherPlayer.direction;
+
+        if (hasPersonChanged) {
+          otherPlayer.hasPerson = playerData.hasPerson;
+          otherPlayer.getCurrentImage();
+          console.log('🎮 Player Update:', {
+            id: playerData.id,
+            hasPerson: playerData.hasPerson,
+            timestamp: new Date().toISOString()
+          });
         }
+      }
     }
-};
+  };
 
 
-webSocket.value.onPlayerDisconnect = (id) => {
+  webSocket.value.onPlayerDisconnect = (id) => {
     otherPlayers.value.delete(id);
-};
+  };
 
   webSocket.value.onConnect = (id) => {
     playerId.value = id
@@ -145,11 +148,11 @@ webSocket.value.onPlayerDisconnect = (id) => {
 const draw = () => {
   const ctx = gameCanvas.value.getContext('2d')
   ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-  
+
   // Draw background
   ctx.fillStyle = 'black'
   ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-  
+
   // Draw tiles
   if (tileManager.value) {
     tileManager.value.draw(ctx)
@@ -178,21 +181,21 @@ const draw = () => {
       }
     })
   }
-  
+
   // Draw local player last (to appear on top)
   player.value.draw(ctx)
 }
-  
-  // Game state
-  const keys = {
+
+// Game state
+const keys = {
   up: false,
   down: false,
   left: false,
   right: false
-  }
-  
-  // Game loop
-  const update = () => {
+}
+
+// Game loop
+const update = () => {
   if (player.value && collisionChecker.value) {
     const keys = {
       up: keyHandler.value.upPressed,
@@ -201,25 +204,41 @@ const draw = () => {
       right: keyHandler.value.rightPressed
     }
 
-    if (player.value.update(keys, collisionChecker.value, objects.value, webSocket.value)) {
-      // Only send update if player state changed
+    // Convertir otros jugadores a array para las colisiones
+    const otherPlayersArray = [...otherPlayers.value.values()]
 
+    if (player.value.update(keys, collisionChecker.value, objects.value, webSocket.value, otherPlayersArray)) {
+      // Only send update if player state changed
       webSocket.value.sendPlayerPosition({
         id: webSocket.value.getLocalPlayerId(),
         x: player.value.x,
         y: player.value.y,
-        direction: player.value.direction
+        direction: player.value.direction,
+        hasPerson: player.value.hasPerson
+      })
+    }
+
+    // Actualizar estado de colisiones si está en modo debug
+    if (collisionState.value.debug) {
+      otherPlayersArray.forEach(otherPlayer => {
+        if (collisionChecker.value.checkPlayerCollision(player.value, [otherPlayer])) {
+          collisionState.value.lastCollision = {
+            time: Date.now(),
+            player1: player.value.id,
+            player2: otherPlayer.id
+          }
+        }
       })
     }
   }
 }
-  
+
 const gameStep = () => {
-    update()
-    draw()
-    gameLoop.value = requestAnimationFrame(gameStep)
+  update()
+  draw()
+  gameLoop.value = requestAnimationFrame(gameStep)
 }
-  
+
 // Update onMounted to initialize WebSocket
 onMounted(async () => {
   await initGame()
@@ -240,38 +259,54 @@ onUnmounted(() => {
 
 
 </script>
-  
-  <style scoped>
-    .game-container {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-image: url('/assets/fondo3.jpeg');
-    overflow: hidden;
-    border: 2px solid #fff;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-    border-radius: 10px;
-    }
-  
-  canvas {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  
-  .game-hud {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    color: red;
-    font-family: 'Press Start 2P', Arial, sans-serif;
-    font-size: 20px;
-    text-shadow: 2px 2px 0 black;
-  }
-  
-  </style>
+
+<style scoped>
+.game-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-image: url('/assets/fondo3.jpeg');
+  overflow: hidden;
+  border: 2px solid #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+}
+
+canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.game-hud {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: red;
+  font-family: 'Press Start 2P', Arial, sans-serif;
+  font-size: 20px;
+  text-shadow: 2px 2px 0 black;
+}
+
+/* Añade dentro de <style scoped> */
+.collision-debug {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 10px;
+  border-radius: 5px;
+  color: #ff0000;
+  font-family: monospace;
+}
+
+.collision-message {
+  color: #ff0000;
+  font-weight: bold;
+}
+</style>
