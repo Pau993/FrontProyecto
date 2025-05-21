@@ -3,6 +3,10 @@
     <canvas ref="gameCanvas" :width="SCREEN_WIDTH" :height="SCREEN_HEIGHT"></canvas>
 
     <div class="game-hud">
+      <div class="player-info">
+        <span class="player-name">{{ playerName }}</span>
+        <span class="player-plate">{{ playerId }}</span>
+      </div>
       <span class="score">Personas: {{ player.hasPerson }}</span>
       <span class="players-online">Jugadores Online: {{ otherPlayers.size + 1 }}</span>
     </div>
@@ -54,9 +58,13 @@ const tileManager = ref(null)
 const player = ref(new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE))
 const objects = ref(new Array(15).fill(null))
 const collisionChecker = ref(null)
-const webSocket = ref(new WebSocketService())
+const { getWebSocket } = useWebSocket()
+const webSocket = ref(getWebSocket())
 const otherPlayers = ref(new Map())
 const collisionState = ref({ lastCollision: null, debug: false })
+const gameState = ref({ isGameOver: false, winner: null });
+const playerName = ref(localStorage.getItem('playerName') || '')
+const playerId = ref(localStorage.getItem('licensePlate') || '')
 
 const gameOver = ref(false);
 const isWinner = ref(false);
@@ -106,20 +114,16 @@ const initGame = async () => {
   webSocket.value.onPlayersUpdate = async (playerData) => {
     const localId = webSocket.value.getLocalPlayerId();
 
-    if (playerData.type === 'personState') {
-      const personId = playerData.personId;
-      const isActive = playerData.active;
-
-      // Find the person object and update its state
-      const person = objects.value.find(obj => obj && obj.id === personId);
-      if (person) {
-        person.active = isActive;
-        console.log(`🎭 Person ${personId} state updated to ${isActive} by player ${playerData.playerId}`);
-      }
-      return;
+    // Update local player's plate if it matches
+    if (playerData.id === localId) {
+      playerId.value = playerData.id; // Update the displayed plate
+      player.value.id = playerData.id;
     }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7a1f1e766735fcfd8cd53d8b2436553106d7bac1
     // If player doesn't exist in otherPlayers, create it
     if (!otherPlayers.value.has(playerData.id) && playerData.id !== localId) {
       const newPlayer = new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, playerData.id);
@@ -131,9 +135,8 @@ const initGame = async () => {
     if (playerData.id !== localId) {
       const otherPlayer = otherPlayers.value.get(playerData.id);
       if (otherPlayer) {
-        // Check if hasPerson is being updated
         const hasPersonChanged = 'hasPerson' in playerData && otherPlayer.hasPerson !== playerData.hasPerson;
-        // Update player properties
+
         otherPlayer.x = playerData.x ?? otherPlayer.x;
         otherPlayer.y = playerData.y ?? otherPlayer.y;
         otherPlayer.direction = playerData.direction ?? otherPlayer.direction;
@@ -154,16 +157,20 @@ const initGame = async () => {
       }
     }
 
+<<<<<<< HEAD
   };
 
+=======
+>>>>>>> 7a1f1e766735fcfd8cd53d8b2436553106d7bac1
   webSocket.value.onPlayerDisconnect = (id) => {
     otherPlayers.value.delete(id);
   };
 
   webSocket.value.onConnect = (id) => {
-    playerId.value = id
-    player.value.id = id
-  }
+    playerId.value = id;
+    player.value.id = id;
+    localStorage.setItem('licensePlate', id); // Save the new plate to localStorage
+  };
 }
 
 function endGame(winner) {
@@ -299,8 +306,6 @@ onUnmounted(() => {
     cancelAnimationFrame(gameLoop.value)
   }
 })
-
-
 </script>
 
 <style scoped>
@@ -353,6 +358,7 @@ canvas {
   font-weight: bold;
 }
 
+<<<<<<< HEAD
 .end-game-overlay {
   position: absolute;
   top: 0;
@@ -423,3 +429,54 @@ canvas {
   animation: popIn 0.8s ease-out, glow 2s infinite alternate;
 }
 </style>
+=======
+.game-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px;
+  border-radius: 10px;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  z-index: 1000;
+  text-align: center;
+}
+
+.win-message {
+  background-color: rgba(0, 255, 0, 0.9);
+}
+
+.lose-message {
+  background-color: rgba(255, 0, 0, 0.9);
+}
+
+.game-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.player-name {
+  color: #fff;
+  font-size: 16px;
+}
+
+.player-plate {
+  color: #44c767;
+  font-size: 18px;
+  font-weight: bold;
+}
+</style>
+>>>>>>> 7a1f1e766735fcfd8cd53d8b2436553106d7bac1

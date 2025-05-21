@@ -53,7 +53,7 @@ onBeforeUnmount(() => {
       </tbody>
     </table>
 
-    <p v-else class="no-players">No hay jugadores conectados.</p>
+    <p v-else class="no-players">No hay jugadores conectados. veamos que pasa</p>
   </div>
 </template>
 
