@@ -28,7 +28,6 @@ import { AssetSetter } from '~/utils/AssetSetter'
 import { CollisionChecker } from '~/utils/CollisionChecker'
 import { KeyHandler } from '~/utils/KeyHandler'
 import { WebSocketService } from '~/utils/WebSocketService'
-import { useWebSocket } from '~/composables/useWebSocket'
 
 // Game constants
 const ORIGINAL_TILE_SIZE = 26
