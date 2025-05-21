@@ -153,7 +153,7 @@ describe('WebSocketService', () => {
     delaySpy.mockRestore()
   })
 
-  it('disconnect cierra socket y limpia estado', () => {
+  it('disconnect cierra socket y limpia estadoo', () => {
     ws.socket = new WebSocket()
     ws.isConnected = true
     ws.connectionAttempts = 1
