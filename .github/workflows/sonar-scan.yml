@@ -1,0 +1,36 @@
+name: Build & SonarQube Scan for Nuxt
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '11' # Ajusta la versión si es necesario
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build (Nuxt)
+        run: npm run build
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.organization=my-org
+            -Dsonar.projectKey=SITS-FRONT
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
