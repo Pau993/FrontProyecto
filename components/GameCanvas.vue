@@ -19,15 +19,25 @@
     </div>
 
     <div v-if="gameOver" class="end-game-overlay result-container">
-      <transition name="fade">
-        <div :class="['result-message', isWinner ? 'glow' : '']">
-          {{ isWinner ? "You Win!" : "Game Over" }}
+      <div class="game-over-content">
+        <transition name="fade">
+          <div :class="['result-message', isWinner ? 'glow' : '']">
+            {{ isWinner ? "You Win!" : "Game Over" }}
+          </div>
+        </transition>
+        
+        <div v-if="!showThankYou" class="buttons-container">
+          <button class="action-button play-again" @click="playAgain">Volver a jugar</button>
+          <button class="action-button exit" @click="exitGame">No</button>
         </div>
-      </transition>
+        
+        <div v-if="showThankYou" class="thank-you-message">
+          Gracias por jugar
+        </div>
+      </div>
     </div>
   </div>
 </template>
-
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
@@ -67,6 +77,8 @@ const isWinner = ref(false);
 
 const playerName = ref('')
 const playerPlate = ref('')
+
+const showThankYou = ref(false)
 
 // Game initialization
 const initGame = async () => {
@@ -179,20 +191,28 @@ const initGame = async () => {
   };
 }
 
+function playAgain() {
+  window.location.href = '/generation'
+}
+
+function exitGame() {
+  showThankYou.value = true
+}
+
 function endGame(winner) {
-  gameOver.value = true;
-  isWinner.value = winner;
+  gameOver.value = true
+  isWinner.value = winner
 
   if (winner) {
     confetti({
       particleCount: 150,
       spread: 70,
       origin: { y: 0.6 }
-    });
+    })
   }
 
-  cancelAnimationFrame(gameLoop.value);
-  webSocket.value?.close();
+  cancelAnimationFrame(gameLoop.value)
+  webSocket.value?.close()
 }
 
 // Drawing
@@ -473,4 +493,123 @@ canvas {
   font-weight: bold;
 }
 
+.game-over-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+}
+
+.buttons-container {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.action-button {
+  padding: 12px 30px;
+  background-color: #4ae257;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+.action-button:hover {
+  background-color: #63c58c;
+  transform: scale(1.05);
+}
+
+.action-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+
+.play-again {
+  background: linear-gradient(45deg, #44c767, #2eab4e);
+  color: white;
+}
+
+.play-again:hover {
+  background: linear-gradient(45deg, #4dd772, #33bc55);
+}
+
+.exit {
+  background: linear-gradient(45deg, #ff4444, #cc3333);
+  color: white;
+}
+
+.exit:hover {
+  background: linear-gradient(45deg, #ff5555, #dd3939);
+}
+
+.thank-you-message {
+  font-family: 'Press Start 2P', Arial, sans-serif;
+  font-size: 48px;
+  text-align: center;
+  margin-top: 40px;
+  animation: thankYouGlow 2s infinite alternate;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #fff;
+  text-shadow: 
+    0 0 10px #4ae257,
+    0 0 20px #4ae257,
+    0 0 30px #4ae257,
+    0 0 40px #4ae257;
+}
+
+@keyframes thankYouGlow {
+  from {
+    text-shadow: 
+      0 0 10px #4ae257,
+      0 0 20px #4ae257,
+      0 0 30px #4ae257,
+      0 0 40px #4ae257;
+  }
+  to {
+    text-shadow: 
+      0 0 15px #4ae257,
+      0 0 25px #4ae257,
+      0 0 35px #4ae257,
+      0 0 45px #4ae257,
+      0 0 55px #4ae257;
+  }
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes buttonGlow {
+  0% {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3),
+                0 0 20px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3),
+                0 0 30px rgba(255, 255, 255, 0.2);
+  }
+  100% {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3),
+                0 0 20px rgba(255, 255, 255, 0.1);
+  }
+}
+
+.action-button {
+  animation: buttonGlow 2s infinite;
+}
 </style>

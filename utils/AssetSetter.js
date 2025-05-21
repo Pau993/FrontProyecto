@@ -14,7 +14,13 @@ export class AssetSetter {
       p6: 'personaEstudiante.png',
       p7: 'personaVerde.png',
       p8: 'tombo.png',
-      p9: 'tombo1.png'
+      p9: 'tombo1.png',
+      p10:'personaVerde.png',
+      p11:'tombo1.png',
+      p12:'mujer.png',
+      p13:'personaEstudiante.png',
+      p14:'personaCampesino.png',
+      p15:'mujer1.png',
     }
   }
 

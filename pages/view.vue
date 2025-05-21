@@ -34,6 +34,7 @@ onBeforeUnmount(() => {
 
 </script>
 <template>
+  <div class="background-view">
   <div class="admin-panel">
     <h2>Panel Admin</h2>
     <p class="count">Jugadores conectados: <strong>{{ playersCount }}</strong></p>
@@ -53,17 +54,29 @@ onBeforeUnmount(() => {
       </tbody>
     </table>
 
-    <p v-else class="no-players">No hay jugadores conectados. veamos que pasa</p>
+    <p v-else class="no-players">No hay jugadores conectados.</p>
+  </div>
   </div>
 </template>
 
 <style scoped>
+
+.background-view {
+  background-image: url('/assets/fondo.png');
+  background-size: cover;
+  background-position: center;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .admin-panel {
   max-width: 600px;
   margin: 2rem auto;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: #2c3e50;
-  background-color: #f9f9f9;
+  background-color: #e7c7c7;
   padding: 1.5rem 2rem;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
