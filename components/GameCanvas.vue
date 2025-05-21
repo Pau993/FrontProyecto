@@ -1,20 +1,30 @@
 <template>
   <div class="game-container">
     <canvas ref="gameCanvas" :width="SCREEN_WIDTH" :height="SCREEN_HEIGHT"></canvas>
+
     <div class="game-hud">
       <span class="score">Personas: {{ player.hasPerson }}</span>
       <span class="players-online">Jugadores Online: {{ otherPlayers.size + 1 }}</span>
     </div>
+
     <div v-if="collisionState.debug" class="collision-debug">
       <div v-if="collisionState.lastCollision" class="collision-message">
         ¡Colisión detectada!
         Jugadores: {{ collisionState.lastCollision.player1 }} y {{ collisionState.lastCollision.player2 }}
       </div>
     </div>
+
+    <div v-if="gameOver" class="end-game-overlay result-container">
+      <transition name="fade">
+        <div :class="['result-message', isWinner ? 'glow' : '']">
+          {{ isWinner ? "You Win!" : "Game Over" }}
+        </div>
+      </transition>
+    </div>
   </div>
 </template>
 
-// This component is responsible for rendering the game canvas and handling the game loop.
+
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
@@ -24,6 +34,7 @@ import { AssetSetter } from '~/utils/AssetSetter'
 import { CollisionChecker } from '~/utils/CollisionChecker'
 import { KeyHandler } from '~/utils/KeyHandler'
 import { WebSocketService } from '~/utils/WebSocketService'
+import confetti from 'canvas-confetti';
 
 // Game constants
 const ORIGINAL_TILE_SIZE = 26
@@ -46,6 +57,9 @@ const collisionChecker = ref(null)
 const webSocket = ref(new WebSocketService())
 const otherPlayers = ref(new Map())
 const collisionState = ref({ lastCollision: null, debug: false })
+
+const gameOver = ref(false);
+const isWinner = ref(false);
 
 // Game initialization
 const initGame = async () => {
@@ -104,6 +118,8 @@ const initGame = async () => {
       }
       return;
     }
+
+
     // If player doesn't exist in otherPlayers, create it
     if (!otherPlayers.value.has(playerData.id) && playerData.id !== localId) {
       const newPlayer = new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, playerData.id);
@@ -130,11 +146,15 @@ const initGame = async () => {
             hasPerson: playerData.hasPerson,
             timestamp: new Date().toISOString()
           });
+          if (otherPlayer.hasPerson >= 7 && !gameOver.value) {
+            endGame(playerData.id === webSocket.value.getLocalPlayerId());
+          }
         }
+
       }
     }
-  };
 
+  };
 
   webSocket.value.onPlayerDisconnect = (id) => {
     otherPlayers.value.delete(id);
@@ -144,6 +164,22 @@ const initGame = async () => {
     playerId.value = id
     player.value.id = id
   }
+}
+
+function endGame(winner) {
+  gameOver.value = true;
+  isWinner.value = winner;
+
+  if (winner) {
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+  }
+
+  cancelAnimationFrame(gameLoop.value);
+  webSocket.value?.close();
 }
 
 // Drawing
@@ -198,6 +234,7 @@ const keys = {
 
 // Game loop
 const update = () => {
+
   if (player.value && collisionChecker.value) {
     const keys = {
       up: keyHandler.value.upPressed,
@@ -220,6 +257,9 @@ const update = () => {
       })
     }
 
+    if (player.value.hasPerson >= 7 && !gameOver.value) {
+      endGame(true);
+    }
     // Actualizar estado de colisiones si está en modo debug
     if (collisionState.value.debug) {
       otherPlayersArray.forEach(otherPlayer => {
@@ -232,6 +272,7 @@ const update = () => {
         }
       })
     }
+
   }
 }
 
@@ -310,5 +351,75 @@ canvas {
 .collision-message {
   color: #ff0000;
   font-weight: bold;
+}
+
+.end-game-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  color: #fff;
+  font-size: 3rem;
+  text-align: center;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 1s ease;
+}
+
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.result-message {
+  animation: popIn 0.8s ease-out;
+  font-size: 48px;
+  font-weight: bold;
+  text-align: center;
+  color: white;
+  text-shadow: 2px 2px 4px #000;
+  margin-top: 20px;
+}
+
+@keyframes glow {
+  0% {
+    text-shadow: 0 0 5px #fff, 0 0 10px #ff0, 0 0 20px #f0f, 0 0 30px #f0f;
+  }
+
+  50% {
+    text-shadow: 0 0 10px #fff, 0 0 15px #0ff, 0 0 25px #0ff, 0 0 35px #0ff;
+  }
+
+  100% {
+    text-shadow: 0 0 5px #fff, 0 0 10px #ff0, 0 0 20px #f0f, 0 0 30px #f0f;
+  }
+}
+
+.result-message.glow {
+  animation: popIn 0.8s ease-out, glow 2s infinite alternate;
 }
 </style>
