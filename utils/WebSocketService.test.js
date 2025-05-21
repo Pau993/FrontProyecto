@@ -245,7 +245,7 @@ describe('WebSocketService', () => {
     expect(ws.sendPlayerData).not.toHaveBeenCalled()
   })
 
-  it('sendPlayerPosition envía los datos correctos', () => {
+  it('sendPlayerPosition envía los datos correctoss', () => {
     ws.sendPlayerData = vi.fn()
     ws.sendPlayerPosition({ id: 5, x: 1, y: 2, direction: 'left' })
     expect(ws.sendPlayerData).toHaveBeenCalledWith(
