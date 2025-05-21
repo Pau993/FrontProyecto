@@ -164,4 +164,126 @@ describe('Player', () => {
     expect(ws.sendHasPersonUpdate).toHaveBeenCalledWith(4)
   })
 
+// ...continuación del describe('Player', ...)
+
+// --- Test para no recoger persona inactiva ---
+it('pickUpObject NO suma si persona no está activa', () => {
+  player.hasPerson = 0
+  const obj = { name: 'person', id: 'per2', active: false }
+  const ws = { sendHasPersonUpdate: vi.fn(), sendPersonState: vi.fn() }
+  const objs = [obj]
+  player.pickUpObject(0, objs, ws)
+  expect(player.hasPerson).toBe(0)
+  expect(obj.active).toBe(false)
+  expect(ws.sendHasPersonUpdate).not.toHaveBeenCalled()
+})
+
+// --- Test pickUpObject con índice inválido o objeto inexistente ---
+it('pickUpObject sin efecto si index es 999', () => {
+  player.hasPerson = 4
+  const objs = []
+  player.pickUpObject(999, objs)
+  expect(player.hasPerson).toBe(4)
+})
+
+it('pickUpObject sin efecto si objects[index] es undefined', () => {
+  player.hasPerson = 5
+  player.pickUpObject(0, [], null)
+  expect(player.hasPerson).toBe(5)
+})
+
+// --- Test checkPlayerCollision: NO colisión entre jugadores distintos ---
+it('checkPlayerCollision retorna undefined si no hay colisión', () => {
+  player.x = 0
+  player.y = 0
+  const other = new Player(width, height, tileSize, 'other')
+  other.x = 200
+  other.y = 200
+  expect(player.checkPlayerCollision([other])).toBeUndefined()
+})
+
+// --- Test drawPersonCount realmente dibuja (sin errores) ---
+it('drawPersonCount llama ctx.arc y fillText', () => {
+  const ctx = {
+    fillStyle: '', beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), textAlign: '', fillText: vi.fn()
+  }
+  player.x = 32
+  player.y = 64
+  player.tileSize = 20
+  player.hasPerson = 6
+  player.drawPersonCount(ctx)
+  expect(ctx.arc).toHaveBeenCalled()
+  expect(ctx.fillText).toHaveBeenCalledWith(
+    '6',
+    32 + 20 - 5,
+    64 - 3
+  )
+})
+
+// --- Test draw: no image para la dirección, muestra warning pero no truena ---
+it('draw muestra warning si no hay imagen para dirección', async () => {
+  const ctx = {
+    save: vi.fn(), restore: vi.fn(),
+    drawImage: vi.fn(), fillText: vi.fn(), fillRect: vi.fn(), measureText: () => ({ width: 10 }),
+    beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), strokeRect: vi.fn(),
+    font: '', fillStyle: '', textAlign: '', strokeStyle: ''
+  }
+  player.imagesLoaded = true
+  player.direction = 'up'
+  player.images.up = undefined
+  // Espía warning en consola
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  player.draw(ctx)
+  expect(warnSpy).toHaveBeenCalled()
+  warnSpy.mockRestore()
+})
+
+// --- Test updateFromNetwork no truena en errores ---
+it('updateFromNetwork maneja errores y no truena', () => {
+  player.isLocal = false
+  expect(() => {
+    // pasar un objeto sin propiedades esperadas
+    player.updateFromNetwork({ type: 'positions', players: null })
+  }).not.toThrow()
+})
+
+// --- Test updateFromNetwork ignora si isLocal ---
+it('updateFromNetwork no modifica si isLocal', () => {
+  player.isLocal = true
+  const prevX = player.x
+  player.updateFromNetwork({ type: 'positions', players: { testId: { x: 99, y: 100 } }})
+  expect(player.x).toBe(prevX)
+})
+
+// --- Test update no mueve si !isLocal ---
+it('update no hace nada si no es local', () => {
+  player.isLocal = false
+  player.x = 50
+  const keys = { up: true }
+  const checker = { checkTile: vi.fn(), checkObject: vi.fn().mockReturnValue(999) }
+  player.update(keys, checker, [], null, [])
+  expect(player.x).toBe(50)
+})
+
+// --- Test update no mueve si no hay teclas activas ---
+it('update no mueve si ningún key presionado', () => {
+  player.isLocal = true
+  player.x = 10
+  player.y = 20
+  const keys = {}
+  const checker = { checkTile: vi.fn(), checkObject: vi.fn().mockReturnValue(999) }
+  player.update(keys, checker, [], null, [])
+  expect(player.x).toBe(10)
+  expect(player.y).toBe(20)
+})
+
+// --- Test pickUpObject con objeto "person" sin id agrega uno ---
+it('pickUpObject da id a objeto person si no tiene', () => {
+  const obj = { name: 'person', active: true }
+  const ws = { sendHasPersonUpdate: vi.fn(), sendPersonState: vi.fn() }
+  const objs = [obj]
+  player.pickUpObject(0, objs, ws)
+  expect(obj.id).toBeDefined()
+})
+
 })
