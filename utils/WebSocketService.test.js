@@ -13,7 +13,7 @@ global.WebSocket = vi.fn(function (url) {
 global.WebSocket.OPEN = 1
 global.WebSocket.CLOSED = 3
 
-const mockWebSocketUrl = process.env.WEBSOCKET_URL || 'ws://localhost:8080/game';
+const mockWebSocketUrl = process.env.WEBSOCKET_URL || 'ws://balanceador-116631868.us-east-1.elb.amazonaws.com/game';
 
 describe('WebSocketService', () => {
   let ws
