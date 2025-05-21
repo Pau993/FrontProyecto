@@ -78,7 +78,7 @@ const login = async () => {
   loading.value = true
   error.value = ''
   try {
-    const res = await $fetch('http://localhost:8080/api/login', {
+    const res = await $fetch('http://balanceador-116631868.us-east-1.elb.amazonaws.com/api/login', {
       method: 'POST',
       body: { username: username.value, password: password.value }
     })

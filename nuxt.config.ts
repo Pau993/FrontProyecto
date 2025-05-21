@@ -45,7 +45,7 @@ export default defineNuxtConfig({
   // Runtime configuration
   runtimeConfig: {
     public: {
-      wsHost: process.env.WS_HOST || 'localhost:8080'
+      wsHost: process.env.WS_HOST || 'balanceador-116631868.us-east-1.elb.amazonaws.com'
     }
   },
   modules: [
