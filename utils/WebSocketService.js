@@ -1,5 +1,5 @@
 export class WebSocketService {
-    static HOST = 'localhost:8080';
+    static HOST = 'balanceador-116631868.us-east-1.elb.amazonaws.com';
     static RECONNECT_DELAY = 5000;
     static MAX_RETRIES = 3;
 

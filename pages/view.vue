@@ -10,7 +10,7 @@ import { WebSocketService } from '~/services/websocketService'
 const playersCount = ref(0)
 const playersList = ref([]) 
 
-const wsUrl = 'ws://localhost:8080/game'  // Mismo endpoint, sin roles en URL
+const wsUrl = 'ws://balanceador-116631868.us-east-1.elb.amazonaws.com/game'  // Mismo endpoint, sin roles en URL
 const username = 'admin'  // Solo para enviar en conexión, puede ser dinámico si quieres
 const role = 'admin'
 
