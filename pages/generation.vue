@@ -12,7 +12,7 @@
 
       <!-- Mostrar placa y botón de play -->
       <div v-if="licensePlate" class="plate-container">
-        <p class="license-plate">Tu placa se a asignado correctamente, la verás reflejada en la pantalla del juego</p>
+        <p class="license-plate">Tu placa se a asignado correctamente, la verás reflejada en la pantalla del juego.</p>
         <button @click="startGame" class="play-button">Play</button>
       </div>
     </div>
