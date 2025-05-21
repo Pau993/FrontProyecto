@@ -4,11 +4,11 @@
 
     <div class="game-hud">
       <div class="player-info">
-        <span class="player-name">{{ playerName }}</span>
-        <span class="player-plate">{{ playerId }}</span>
+        <span class="player-name">Jugador: {{ playerName }}</span>
+        <span class="license-plate">Placa: {{ playerId }}</span>
+        <span class="score">Personas: {{ player.hasPerson }}</span>
+        <span class="players-online">Jugadores Online: {{ otherPlayers.size + 1 }}</span>
       </div>
-      <span class="score">Personas: {{ player.hasPerson }}</span>
-      <span class="players-online">Jugadores Online: {{ otherPlayers.size + 1 }}</span>
     </div>
 
     <div v-if="collisionState.debug" class="collision-debug">
@@ -27,7 +27,6 @@
     </div>
   </div>
 </template>
-
 
 
 <script setup>
@@ -58,16 +57,16 @@ const tileManager = ref(null)
 const player = ref(new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE))
 const objects = ref(new Array(15).fill(null))
 const collisionChecker = ref(null)
-const { getWebSocket } = useWebSocket()
-const webSocket = ref(getWebSocket())
+const webSocket = ref(new WebSocketService())
 const otherPlayers = ref(new Map())
 const collisionState = ref({ lastCollision: null, debug: false })
-const gameState = ref({ isGameOver: false, winner: null });
-const playerName = ref(localStorage.getItem('playerName') || '')
 const playerId = ref(localStorage.getItem('licensePlate') || '')
 
 const gameOver = ref(false);
 const isWinner = ref(false);
+
+const playerName = ref('')
+const playerPlate = ref('')
 
 // Game initialization
 const initGame = async () => {
@@ -114,16 +113,25 @@ const initGame = async () => {
   webSocket.value.onPlayersUpdate = async (playerData) => {
     const localId = webSocket.value.getLocalPlayerId();
 
+    if (playerData.type === 'personState') {
+      const personId = playerData.personId;
+      const isActive = playerData.active;
+
+      // Find the person object and update its state
+      const person = objects.value.find(obj => obj && obj.id === personId);
+      if (person) {
+        person.active = isActive;
+        console.log(`🎭 Person ${personId} state updated to ${isActive} by player ${playerData.playerId}`);
+      }
+      return;
+    }
+
     // Update local player's plate if it matches
     if (playerData.id === localId) {
       playerId.value = playerData.id; // Update the displayed plate
       player.value.id = playerData.id;
     }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 7a1f1e766735fcfd8cd53d8b2436553106d7bac1
     // If player doesn't exist in otherPlayers, create it
     if (!otherPlayers.value.has(playerData.id) && playerData.id !== localId) {
       const newPlayer = new Player(SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, playerData.id);
@@ -135,8 +143,9 @@ const initGame = async () => {
     if (playerData.id !== localId) {
       const otherPlayer = otherPlayers.value.get(playerData.id);
       if (otherPlayer) {
+        // Check if hasPerson is being updated
         const hasPersonChanged = 'hasPerson' in playerData && otherPlayer.hasPerson !== playerData.hasPerson;
-
+        // Update player properties
         otherPlayer.x = playerData.x ?? otherPlayer.x;
         otherPlayer.y = playerData.y ?? otherPlayer.y;
         otherPlayer.direction = playerData.direction ?? otherPlayer.direction;
@@ -157,11 +166,8 @@ const initGame = async () => {
       }
     }
 
-<<<<<<< HEAD
   };
 
-=======
->>>>>>> 7a1f1e766735fcfd8cd53d8b2436553106d7bac1
   webSocket.value.onPlayerDisconnect = (id) => {
     otherPlayers.value.delete(id);
   };
@@ -291,10 +297,13 @@ const gameStep = () => {
 
 // Update onMounted to initialize WebSocket
 onMounted(async () => {
+  // Load player info from localStorage
+  playerName.value = localStorage.getItem('playerName') || 'Unknown'
+  playerPlate.value = localStorage.getItem('licensePlate') || 'XXX-000'
+  
   await initGame()
   keyHandler.value.init()
-  webSocket.value.connect() // Connect to WebSocket
-
+  webSocket.value.connect()
   gameStep()
 })
 
@@ -306,6 +315,8 @@ onUnmounted(() => {
     cancelAnimationFrame(gameLoop.value)
   }
 })
+
+
 </script>
 
 <style scoped>
@@ -358,7 +369,6 @@ canvas {
   font-weight: bold;
 }
 
-<<<<<<< HEAD
 .end-game-overlay {
   position: absolute;
   top: 0;
@@ -428,31 +438,15 @@ canvas {
 .result-message.glow {
   animation: popIn 0.8s ease-out, glow 2s infinite alternate;
 }
-</style>
-=======
-.game-message {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 20px;
-  border-radius: 10px;
-  color: white;
-  font-size: 24px;
-  font-weight: bold;
-  z-index: 1000;
-  text-align: center;
-}
-
-.win-message {
-  background-color: rgba(0, 255, 0, 0.9);
-}
-
-.lose-message {
-  background-color: rgba(255, 0, 0, 0.9);
-}
 
 .game-hud {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: white;
+  font-family: 'Press Start 2P', Arial, sans-serif;
+  font-size: 20px;
+  text-shadow: 2px 2px 0 black;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -462,21 +456,21 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  margin-bottom: 10px;
   padding: 10px;
-  background: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.5);
   border-radius: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .player-name {
-  color: #fff;
+  color: #44c767;
   font-size: 16px;
 }
 
-.player-plate {
-  color: #44c767;
+.license-plate {
+  color: #4ae257;
   font-size: 18px;
   font-weight: bold;
 }
+
 </style>
->>>>>>> 7a1f1e766735fcfd8cd53d8b2436553106d7bac1
