@@ -9,10 +9,11 @@ global.WebSocket = vi.fn(function (url) {
   this.send = vi.fn()
   this.close = vi.fn()
   this.setOn = (ev, fn) => { this[`on${ev}`] = fn }
-  // onopen, onmessage… las puedes setear así para tests
 })
 global.WebSocket.OPEN = 1
 global.WebSocket.CLOSED = 3
+
+const mockWebSocketUrl = process.env.WEBSOCKET_URL || 'ws://localhost:8080/game';
 
 describe('WebSocketService', () => {
   let ws
@@ -39,8 +40,7 @@ describe('WebSocketService', () => {
     ws.sendPlayerData = vi.fn()
     ws.socket = null
     ws.connect()
-    expect(global.WebSocket).toHaveBeenCalledWith('ws://localhost:8080/game')
-    // Simula apertura:
+    expect(global.WebSocket).toHaveBeenCalledWith(mockWebSocketUrl)
     ws.socket.onopen()
     expect(ws.isConnected).toBe(true)
     expect(ws.sendPlayerData).toHaveBeenCalled()
@@ -60,19 +60,16 @@ describe('WebSocketService', () => {
     ws.onPlayersUpdate = cb
     ws.localPlayerId = 'myid'
 
-    // positions update
     ws.handleMessage({ data: JSON.stringify({ type: 'positions', players: { a: { x: 1, y: 2, direction: 'up' } } }) })
     expect(cb).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'playerUpdate', id: 'a', x: 1, y: 2, direction: 'up' })
     )
 
-    // personUpdate for remote
     ws.handleMessage({ data: JSON.stringify({ type: 'personUpdate', playerId: 'remoteid', hasPerson: 5 }) })
     expect(cb).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'playerUpdate', id: 'remoteid', hasPerson: 5 })
     )
 
-    // personUpdate for local (should skip callback)
     ws.onPlayersUpdate = vi.fn()
     ws.handleMessage({ data: JSON.stringify({ type: 'personUpdate', playerId: 'myid', hasPerson: 9 }) })
     expect(ws.onPlayersUpdate).not.toHaveBeenCalled()
@@ -108,7 +105,6 @@ describe('WebSocketService', () => {
     ws.socket = { send: vi.fn() }
     ws.isConnected = true
     ws.socket.readyState = WebSocket.OPEN
-    // Generar un objeto circular para que JSON falle
     const circular = {}
     circular.ref = circular
     ws.pendingMessages = []
@@ -153,7 +149,7 @@ describe('WebSocketService', () => {
     delaySpy.mockRestore()
   })
 
-  it('disconnect cierra socket y limpia estadoo', () => {
+  it('disconnect cierra socket y limpia estado', () => {
     ws.socket = new WebSocket()
     ws.isConnected = true
     ws.connectionAttempts = 1
@@ -161,117 +157,105 @@ describe('WebSocketService', () => {
     expect(ws.socket).toBe(null)
     expect(ws.isConnected).toBe(false)
     expect(ws.connectionAttempts).toBe(0)
+
+      })
+
+  it('handleMessage maneja error de JSON y message sin type', () => {
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => ws.handleMessage({ data: '<<badjson>>' })).not.toThrow()
+    ws.handleMessage({ data: JSON.stringify({ some: 'random' }) })
+    expect(logError).toHaveBeenCalled()
+    logError.mockRestore()
   })
-  // --- Test para handleMessage: error de JSON y formato inválido ---
-it('handleMessage maneja error de JSON y message sin type', () => {
-  const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
-  // JSON inválido
-  expect(() => ws.handleMessage({ data: '<<badjson>>' })).not.toThrow()
-  // Mensaje sin "type"
-  ws.handleMessage({ data: JSON.stringify({ some: 'random' }) })
-  expect(logError).toHaveBeenCalled()
-  logError.mockRestore()
-})
 
-// --- Test handleMessage: message.error ---
-it('handleMessage maneja mensajes con error', () => {
-  const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
-  ws.handleMessage({ data: JSON.stringify({ error: 'fail!' }) })
-  expect(logError).toHaveBeenCalledWith(' Server Error:', 'fail!')
-  logError.mockRestore()
-})
+  it('handleMessage maneja mensajes con error', () => {
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    ws.handleMessage({ data: JSON.stringify({ error: 'fail!' }) })
+    expect(logError).toHaveBeenCalledWith(' Server Error:', 'fail!')
+    logError.mockRestore()
+  })
 
-// --- Test: handleMessage: UNKNOWN type (default branch/warning) ---
-it('handleMessage emite warning si type desconocido', () => {
-  const logWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-  ws.handleMessage({ data: JSON.stringify({ type: 'desconocido!' }) })
-  expect(logWarn).toHaveBeenCalled()
-  logWarn.mockRestore()
-})
+  it('handleMessage emite warning si type desconocido', () => {
+    const logWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    ws.handleMessage({ data: JSON.stringify({ type: 'desconocido!' }) })
+    expect(logWarn).toHaveBeenCalled()
+    logWarn.mockRestore()
+  })
 
-// --- Test: receiveWebSocketData asigna onmessage y llama handleMessage ---
-it('receiveWebSocketData asigna correctamente onmessage', () => {
-  ws.handleMessage = vi.fn()
-  ws.socket = new WebSocket()
-  ws.receiveWebSocketData()
-  // Simula evento
-  const fakeEvt = { data: JSON.stringify({ type: 'positions', players: {} }) }
-  ws.socket.onmessage(fakeEvt)
-  expect(ws.handleMessage).toHaveBeenCalledWith(fakeEvt)
-})
+  it('receiveWebSocketData asigna correctamente onmessage', () => {
+    ws.handleMessage = vi.fn()
+    ws.socket = new WebSocket()
+    ws.receiveWebSocketData()
+    const fakeEvt = { data: JSON.stringify({ type: 'positions', players: {} }) }
+    ws.socket.onmessage(fakeEvt)
+    expect(ws.handleMessage).toHaveBeenCalledWith(fakeEvt)
+  })
 
-// --- Test: connect cierra socket abierto antes de crear nuevo ---
-it('connect cierra socket abierto con readyState !== CLOSED', () => {
-  ws.socket = new WebSocket()
-  ws.socket.readyState = 1 // Not CLOSED
-  const oldSocket = ws.socket
-  oldSocket.close = vi.fn()
-  ws.connectionAttempts = 0
-  ws.sendPlayerData = vi.fn()
-  ws.connect()
-  expect(oldSocket.close).toHaveBeenCalled()
-})
+  it('connect cierra socket abierto con readyState !== CLOSED', () => {
+    ws.socket = new WebSocket()
+    ws.socket.readyState = 1 // Not CLOSED
+    const oldSocket = ws.socket
+    oldSocket.close = vi.fn()
+    ws.connectionAttempts = 0
+    ws.sendPlayerData = vi.fn()
+    ws.connect()
+    expect(oldSocket.close).toHaveBeenCalled()
+  })
 
-// --- Test: handleClose actualiza estado y reconecta si código distinto a 1000 ---
-it('handleClose actualiza isConnected y llama a handleReconnect', () => {
-  ws.handleReconnect = vi.fn()
-  ws.isConnected = true
-  const evt = { code: 500 }
-  ws.handleClose(evt)
-  expect(ws.isConnected).toBe(false)
-  expect(ws.handleReconnect).toHaveBeenCalled()
-})
+  it('handleClose actualiza isConnected y llama a handleReconnect', () => {
+    ws.handleReconnect = vi.fn()
+    ws.isConnected = true
+    const evt = { code: 500 }
+    ws.handleClose(evt)
+    expect(ws.isConnected).toBe(false)
+    expect(ws.handleReconnect).toHaveBeenCalled()
+  })
 
-// --- Test: handleClose NO reconecta con código 1000 ---
-it('handleClose solo desconecta si code=1000', () => {
-  ws.handleReconnect = vi.fn()
-  ws.isConnected = true
-  const evt = { code: 1000 }
-  ws.handleClose(evt)
-  expect(ws.isConnected).toBe(false)
-  expect(ws.handleReconnect).not.toHaveBeenCalled()
-})
+  it('handleClose solo desconecta si code=1000', () => {
+    ws.handleReconnect = vi.fn()
+    ws.isConnected = true
+    const evt = { code: 1000 }
+    ws.handleClose(evt)
+    expect(ws.isConnected).toBe(false)
+    expect(ws.handleReconnect).not.toHaveBeenCalled()
+  })
 
-// --- Test: handleError actualiza isConnected y muestra error ---
-it('handleError hace log de error y desconecta', () => {
-  const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
-  ws.isConnected = true
-  ws.handleError('FATAL!')
-  expect(logError).toHaveBeenCalledWith('WebSocket Error:', 'FATAL!')
-  expect(ws.isConnected).toBe(false)
-  logError.mockRestore()
-})
+  it('handleError hace log de error y desconecta', () => {
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    ws.isConnected = true
+    ws.handleError('FATAL!')
+    expect(logError).toHaveBeenCalledWith('WebSocket Error:', 'FATAL!')
+    expect(ws.isConnected).toBe(false)
+    logError.mockRestore()
+  })
 
-// --- Test: setPlayersUpdateCallback y setInitialDataCallback asignan callback ---
-it('setPlayersUpdateCallback y setInitialDataCallback asignan handlers', () => {
-  const cb1 = () => {}
-  const cb2 = () => {}
-  ws.setPlayersUpdateCallback(cb1)
-  ws.setInitialDataCallback(cb2)
-  expect(ws.onPlayersUpdate).toBe(cb1)
-  expect(ws.onInitialData).toBe(cb2)
-})
+  it('setPlayersUpdateCallback y setInitialDataCallback asignan handlers', () => {
+    const cb1 = () => {}
+    const cb2 = () => {}
+    ws.setPlayersUpdateCallback(cb1)
+    ws.setInitialDataCallback(cb2)
+    expect(ws.onPlayersUpdate).toBe(cb1)
+    expect(ws.onInitialData).toBe(cb2)
+  })
 
-// --- Test: processQueuedMessages NO llama sendPlayerData si la cola está vacía ---
-it('processQueuedMessages funciona sin error si pendingMessages ya está vacía', () => {
-  ws.sendPlayerData = vi.fn()
-  ws.pendingMessages = []
-  expect(() => ws.processQueuedMessages()).not.toThrow()
-  expect(ws.sendPlayerData).not.toHaveBeenCalled()
-})
+  it('processQueuedMessages funciona sin error si pendingMessages ya está vacía', () => {
+    ws.sendPlayerData = vi.fn()
+    ws.pendingMessages = []
+    expect(() => ws.processQueuedMessages()).not.toThrow()
+    expect(ws.sendPlayerData).not.toHaveBeenCalled()
+  })
 
-// --- Test: sendPlayerPosition prepara bien los datos y llama sendPlayerData ---
-it('sendPlayerPosition envía los datos correctos', () => {
-  ws.sendPlayerData = vi.fn()
-  ws.sendPlayerPosition({ id: 5, x: 1, y: 2, direction: 'left' })
-  expect(ws.sendPlayerData).toHaveBeenCalledWith(
-    expect.objectContaining({
-      type: 'playerUpdate',
-      id: 5,
-      x: 1,
-      y: 2,
-      direction: 'left'
-    })
-  )
-})
+  it('sendPlayerPosition envía los datos correctos', () => {
+    ws.sendPlayerData = vi.fn()
+    ws.sendPlayerPosition({ id: 5, x: 1, y: 2, direction: 'left' })
+    expect(ws.sendPlayerData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'playerUpdate',
+        id: 5,
+        x: 1,
+        y: 2,
+        direction: 'left'
+      })
+    )
+  })
 })
